@@ -8,7 +8,7 @@ I took the time to go over each Dockerfile and fix the source images, so that it
 
 ## Disclaimer
 
-This is in no way a official guide on how to setup Robot Shop on Power. This is more of a description of what I did with my environment to get the Robot Shop up & running. Please note, that I had to disable tracing for Robot Shop webpage, because Instana currently (24.11.2021) doesn't support tracing on ppc64le architecture. When it was enable I had issues with rs-web image deploying, because of nginx failing to start. The cause was probably non-compatible `instanalib.so` file, that is copied during the deployment into nginx library folder. Unfortunately this file is available only for amd64 architecture, so no tracing yet.
+This is in no way a official guide on how to setup Robot Shop on Power. This is more of a description of what I did with my environment to get the Robot Shop up & running.
 
 ## My environment description
 
@@ -19,24 +19,58 @@ This is in no way a official guide on how to setup Robot Shop on Power. This is 
 
 ## Install
 
+### Prerequsites
+There are some prerequisites you need to install for Robot Shop to work. First and most important is obviously Docker. You can follow any tutorial and it should work for ppc64le. I did not encouter any trouble here. I have followed this documentation [https://docs.docker.com/engine/install/rhel/](https://docs.docker.com/engine/install/rhel/)
 
-### Prepare environment
+The second is Docker-Compose. You need to use the Python (pip) install method, otherwise the installation will fail. I have followed official documentation, using the `Alternative install options` method. Please note, that you probably have to install Python and Pip first, to make this work. Documentation can be found here: [https://docs.docker.com/compose/install/](https://docs.docker.com/compose/install/)
 
+```
+pip3 install docker-compose
+```
 
-### Deploy Robot Shop
+At the end you need to download Git to clone this repo.
 
+```
+yum install git
+git clone <this repo url>
+cd <this repo folder>
+```
 
-### Deploy Instana Agent
+### Robot Shop deployment
+If you did not done so yet, navigate to the folder of cloned repo and simply run following commands. First you will need to build the images locally.
 
+```
+docker-compose build
+```
 
-## Disable tracing, cause NOT supported
+Fire up download images with `-d` flag to run on background.
 
+```
+docker-compose -f docker-compose.yaml -f docker-compose-load.yaml up -d
+```
+
+Run following command to check if everything went smooth. You can try to debug containers that `exited`.
+
+```
+docker ps -a
+docker logs <container ID>     <---    use for container troubleshooting
+```
+
+## Disabled tracing, cause NOT supported?
+I was not able to get Nginx tracing running on ppc64le architecture. I had to heavily modify the Dockerfile of `web` service component to disable tracing. I am not sure if this is not supported by Instana agent currently, but during deployment of `rs-web` service I ran into issues. The cause was probably non-compatible `instanalib.so` file, that is copied during the deployment into Nginx library folder. Unfortunately this file is available only for amd64 architecture, so no tracing yet. 
+
+The exact error I was getting:
+
+```
+[emerg] 1#1: dlopen() "/etc/nginx/modules/ngx_http_opentracing_module.so" failed (/etc/nginx/modules/ngx_http_opentracing_module.so: cannot open shared object file: No such file or directory) in /etc/nginx/nginx.conf:2
+```
+I have manually went inside the container and verified that the file existed. This file is downloaded from Instana online repos and copied over by the Dockerfile but for some reason is not recognized by the Nginx server. I have fiddled around with different versions of the Nginx server and Alpine base image but simply could not get it to work. Otherwise everything else works fine and for short demo it is more than enough.
 
 ## Dockerfile changes overview
 
 In this section I want to highlight the changes that I made to individual Dockerfiles. Mostly it is just the change of source image, to be compatible with ppc64le architecture.
 
-| Name      | Previous Image | Now Image                  | Notes |
+| Name      | Previous Image | Current Image              | Notes |
 |-----------|----------------|----------------------------|-------|
 | Cart      | node:14        | node:14-buster             |   |
 | Catalogue | node:14        | node:14-buster             |   |
